@@ -7,22 +7,22 @@ provider "azurerm" {
 }
 
 # -------------------------------
-# RESOURCE GROUP (NEW ONE)
+# RESOURCE GROUP
 # -------------------------------
 resource "azurerm_resource_group" "rg" {
-  name     = "rg-shruti-terraform"   # NEW RG (so no conflict)
-  location = "West US 2"             # Same region as VM
+  name     = "rg-shruti-terraform"
+  location = "West US 2"
 }
 
 # -------------------------------
 # STORAGE ACCOUNT
 # -------------------------------
 resource "azurerm_storage_account" "storage" {
-  name                     = "shrutistorageterraform01"  # MUST be globally unique
+  name                     = "shrutistorageterraform01"
   resource_group_name      = azurerm_resource_group.rg.name
   location                 = azurerm_resource_group.rg.location
-  account_tier             = "Standard"   # SAME as manual
-  account_replication_type = "LRS"        # SAME as manual
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
 }
 
 # -------------------------------
@@ -39,7 +39,7 @@ resource "azurerm_virtual_network" "vnet" {
 # SUBNET
 # -------------------------------
 resource "azurerm_subnet" "subnet" {
-  name                 = "default"   # same as portal
+  name                 = "default"
   resource_group_name  = azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefixes     = ["10.0.0.0/24"]
@@ -53,6 +53,27 @@ resource "azurerm_public_ip" "publicip" {
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
   allocation_method   = "Static"
+}
+
+# -------------------------------
+# NETWORK SECURITY GROUP (FIX)
+# -------------------------------
+resource "azurerm_network_security_group" "nsg" {
+  name                = "vm-shruti-01-nsg"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+
+  security_rule {
+    name                       = "Allow-SSH"
+    priority                   = 1000
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "22"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
 }
 
 # -------------------------------
@@ -72,16 +93,24 @@ resource "azurerm_network_interface" "nic" {
 }
 
 # -------------------------------
+# ASSOCIATE NSG WITH NIC (FIX)
+# -------------------------------
+resource "azurerm_network_interface_security_group_association" "nic_nsg" {
+  network_interface_id      = azurerm_network_interface.nic.id
+  network_security_group_id = azurerm_network_security_group.nsg.id
+}
+
+# -------------------------------
 # VIRTUAL MACHINE
 # -------------------------------
 resource "azurerm_virtual_machine" "vm" {
-  name                  = "vm-shruti-01"   # SAME name as manual
+  name                  = "vm-shruti-01"
   location              = azurerm_resource_group.rg.location
   resource_group_name   = azurerm_resource_group.rg.name
 
   network_interface_ids = [azurerm_network_interface.nic.id]
 
-  vm_size = "Standard_B2as_v2"   # ✅ SAME as your manual choice
+  vm_size = "Standard_B2as_v2"
 
   # Ubuntu image
   storage_image_reference {
@@ -91,23 +120,23 @@ resource "azurerm_virtual_machine" "vm" {
     version   = "latest"
   }
 
-  # OS Disk
+  # OS disk
   storage_os_disk {
     name              = "vm-shruti-01-disk"
     caching           = "ReadWrite"
     create_option     = "FromImage"
-    managed_disk_type = "Standard_LRS"   # ✅ SAME as manual (Standard SSD)
+    managed_disk_type = "Standard_LRS"
   }
 
-  # Login config
+  # Login
   os_profile {
     computer_name  = "vm-shruti-01"
-    admin_username = "azureuser"          # ✅ SAME username
-    admin_password = "Terraform@12345"    # change if needed
+    admin_username = "azureuser"
+    admin_password = "Terraform@12345"
   }
 
-  # Linux config
   os_profile_linux_config {
     disable_password_authentication = false
   }
 }
+
